@@ -30,6 +30,7 @@ PATH
       kramdown
       memoist
       mimemagic
+      multipart-post
       rack
       railties (>= 5.2.1)
       recursive-open-struct
@@ -118,6 +119,7 @@ GEM
     mimemagic (0.3.2)
     mini_portile2 (2.3.0)
     minitest (5.11.3)
+    multipart-post (2.0.0)
     mysql2 (0.5.2)
     nokogiri (1.8.5)
       mini_portile2 (~> 2.3.0)

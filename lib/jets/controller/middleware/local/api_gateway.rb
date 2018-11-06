@@ -57,6 +57,9 @@ class Jets::Controller::Middleware::Local
     # they would be fake anyway and by not adding them we can distinguish a
     # local request from a remote request on API Gateway.
     def request_headers
+      # puts "lambda_awsp_proxy.rb env:"
+      # pp @env
+
       headers = @env.select { |k,v| k =~ /^HTTP_/ }.inject({}) do |h,(k,v)|
           # map things like HTTP_USER_AGENT to "User-Agent"
           key = k.sub('HTTP_','').split('_').map(&:capitalize).join('-')
@@ -64,6 +67,8 @@ class Jets::Controller::Middleware::Local
           h
         end
       # Content type is not prepended with HTTP_ but is part of Lambda's event headers thankfully
+      # puts "lambda_awsp_proxy.rb headers1: "
+      # pp headers
       headers["Content-Type"] = @env["CONTENT_TYPE"] if @env["CONTENT_TYPE"]
 
       # Adjust the casing so it matches the Lambda AWS Proxy's structure

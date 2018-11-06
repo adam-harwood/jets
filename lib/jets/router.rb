@@ -26,6 +26,7 @@ module Jets
       post "#{name}", to: "#{name}#create"
       get "#{name}/:id/edit", to: "#{name}#edit" unless api_mode?
       put "#{name}/:id", to: "#{name}#update"
+      patch "#{name}/:id", to: "#{name}#update"
       delete "#{name}/:id", to: "#{name}#delete"
     end
 

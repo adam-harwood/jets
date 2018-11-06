@@ -4,6 +4,15 @@ class Jets::RackController < Jets::Controller::Base
 
   # Megamode
   def process
+    # puts "PARAMS:".colorize(:yellow)
+    # pp params
+    # render json: {success: true}
+    safe_event = event.dup
+    safe_event['body'] = "POSSIBLE BINARY" # event['body'].force_encoding("UTF-8")
+
+    puts "RackController SAFE EVENT:".colorize(:yellow)
+    puts JSON.dump(safe_event)
+
     resp = mega_request
     render(resp)
   end

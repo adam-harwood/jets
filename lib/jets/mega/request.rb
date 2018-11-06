@@ -3,6 +3,8 @@ require 'rack'
 
 module Jets::Mega
   class Request
+    extend Memoist
+
     def initialize(event, controller)
       @event = event
       @controller = controller # Jets::Controller instance
@@ -12,7 +14,14 @@ module Jets::Mega
       http_method = @event['httpMethod'] # GET, POST, PUT, DELETE, etc
       params = @controller.params(raw: true, path_parameters: false)
 
-      uri = URI("http://localhost:9292#{@controller.request.path}") # local rack server
+      url = "http://localhost:9292#{@controller.request.path}"
+      unless @controller.query_parameters.empty?
+        # Thanks: https://stackoverflow.com/questions/798710/ruby-how-to-turn-a-hash-into-http-parameters
+        query_string = Rack::Utils.build_nested_query(@controller.query_parameters)
+        url += "?#{query_string}"
+      end
+      uri = URI(url) # local rack server
+
       http = Net::HTTP.new(uri.host, uri.port)
       http.open_timeout = 60
       http.read_timeout = 60
@@ -42,13 +51,89 @@ module Jets::Mega
 
       response = http.request(request)
 
-      # TODO: handle binary
+      # # TODO: handle binary
+      # content_type = @event["headers"]["content-type"]
+      # if content_type&.include?("multipart/form-data")
+      #   response = send_multipart_request(http, uri)
+      # else
+      #   response = send_normal_request(http, uri)
+      # end
+
       {
         status: response.code.to_i,
         headers: response.each_header.to_h,
         body: response.body,
       }
     end
+
+    def send_multipart_request(http, uri)
+      # map = { "Patch" => "Put" } # not all classes are available with Multipart library
+      # multi_class = map[http_class] || http_class
+      # # IE: Net::HTTP::Post::Multipart
+      # klass = "Net::HTTP::#{multi_class}::Multipart".constantize
+
+      # path = File.expand_path("#{Jets.root}rack/jets-mega.png")
+      # png = File.read(path, 'rb')
+      request = Net::HTTP::Patch.new(uri,
+        {}
+        # "user[avatar]" => UploadIO.new(png, "image/png", "jets-mega.png")
+      )
+      request = set_headers!(request)
+
+      request.body = @event['body'] # weird works locally but not with AWS Lambda
+      puts "rack#request @event['body'].class #{@event['body'].class}"
+      puts "request.body.class #{request.body.class}"
+
+      # request['Content-Length'] = 123
+      # request['content-length'] = 123
+      # pp request
+
+      # response = http.request(request)
+      # response
+      Net::HTTP.start(uri.host, uri.port) do |h|
+        h.request(request)
+      end
+    end
+
+    def send_normal_request(http, uri)
+      # IE: Net::HTTP::Get, Net::HTTP::Post, etc
+      klass = "Net::HTTP::#{http_class}".constantize
+      request = klass.new(uri)
+      request = set_normal_data!(request)
+      request = set_headers!(request)
+      http.request(request)
+    end
+
+    def set_normal_data!(request)
+      return request unless %w[Post Patch Put].include?(http_class)
+      return request unless content_type = @event["headers"]["content-type"]
+
+      # content_type: multipart/form-data; boundary=----WebKitFormBoundarydhxvxyxg19TFYTcE
+      puts "content_type: #{content_type}"
+      if content_type.include?("application/x-www-form-urlencoded")
+        form_data = HashConverter.encode(params)
+        puts "form_data:".colorize(:yellow)
+        pp form_data
+        request.set_form_data(form_data)
+      elsif content_type.include?("multipart")
+        request.body = @event['body']
+      end
+      request
+    end
+
+    # Rails sets _method=patch or _method=put as workaround
+    # Falls back to GET when testing in lambda console
+    # @event['httpMethod'] is GET, POST, PUT, DELETE, etc
+    def http_class
+      http_class = params['_method'] || @event['httpMethod'] || 'GET'
+      http_class.capitalize!
+      http_class
+    end
+
+    def params
+      @controller.params(raw: true, path_parameters: false, body_parameters: true)
+    end
+    memoize :params
 
     # Set request headers. Forwards original request info from remote API gateway.
     # By this time, the server/api_gateway.rb middleware.
