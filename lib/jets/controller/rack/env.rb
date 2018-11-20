@@ -35,7 +35,7 @@ module Jets::Controller::Rack
 
       map['CONTENT_LENGTH'] = content_length if content_length
       # Even if not set, Rack always assigns an StringIO to "rack.input"
-      map[:input] = StringIO.new(body) if body
+      map['rack.input'] = StringIO.new(body) if body
 
       # TODO: handle decoding base64 encoded body from API Gateaway
       # Will need to make sure that pass the base64 info via a request header
