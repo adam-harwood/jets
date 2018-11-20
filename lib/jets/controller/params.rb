@@ -32,25 +32,27 @@ class Jets::Controller
     end
 
     def body_params
-      puts "body_params 1"
+      # puts "body_params 1"
       body = event['isBase64Encoded'] ? decode(event["body"]) : event["body"]
-      puts "body_params 2"
+      # puts "body_params 2"
       return {} if body.nil?
 
       # Try json parsing
-      puts "body_params 3"
+      # puts "body_params 3"
       parsed_json = parse_json(body)
       return parsed_json if parsed_json
 
-      puts "body_params 4"
+      # puts "body_params 4"
       # For content-type application/x-www-form-urlencoded CGI.parse the body
       headers = event["headers"] || {}
       headers = headers.transform_keys { |key| key.downcase }
       # API Gateway seems to use either: content-type or Content-Type
       content_type = headers["content-type"]
       if content_type.to_s.include?("application/x-www-form-urlencoded")
-        return Rack::Utils.parse_nested_query(body)
+        puts "parse application/x-www-form-urlencoded".colorize(:yellow)
+        return ::Rack::Utils.parse_nested_query(body)
       elsif content_type.to_s.include?("multipart/form-data")
+        puts "parse_multipart".colorize(:yellow)
         return parse_multipart(body)
       end
 
@@ -62,9 +64,7 @@ class Jets::Controller
   private
 
     def parse_multipart(body)
-      puts "parse_multipart".colorize(:yellow)
-
-      boundary = Rack::Multipart::Parser.parse_boundary(headers["content-type"])
+      boundary = ::Rack::Multipart::Parser.parse_boundary(headers["content-type"])
       # puts "boundary: #{boundary.inspect}"
       # if event['isBase64Encoded']
       #   puts "event[body] #{event['body']}"
@@ -72,16 +72,20 @@ class Jets::Controller
       #   puts "body: #{body.inspect}"
       # end
       options = multipart_options(body, boundary)
-      puts "options: #{options.inspect}"
+      # puts "options: #{options.inspect}"
 
-      env = Rack::MockRequest.env_for("/", options)
-      puts "env: #{env.inspect}"
-      params = Rack::Multipart.parse_multipart(env)
+      env = ::Rack::MockRequest.env_for("/", options)
+      # puts "env:"
+      # pp env
 
-      unless event['isBase64Encoded']
-        puts "params: #{params.inspect}"
-      end
+      puts "env['CONTENT_TYPE'] #{env['CONTENT_TYPE'].inspect}"
+      puts "env['CONTENT_LENGTH'] #{env['CONTENT_LENGTH'].inspect}"
+      puts "env['rack.input'] #{env['rack.input'].inspect}"
+      body = env['rack.input'].read
+      puts "body.size #{body.size}"
+      env['rack.input'].rewind
 
+      params = ::Rack::Multipart.parse_multipart(env)
       params
     end
 

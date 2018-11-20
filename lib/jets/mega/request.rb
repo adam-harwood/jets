@@ -1,4 +1,5 @@
 require 'net/http'
+require 'net/http/post/multipart' # must require explicitly
 require 'rack'
 
 module Jets::Mega
